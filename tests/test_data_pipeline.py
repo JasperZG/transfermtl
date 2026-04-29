@@ -204,3 +204,78 @@ def test_featurize_cache_skips_on_second_run(
 
     # Warm pass must be at least 5x faster than the cold pass.
     assert warm < cold * 0.5 or warm < 0.01, f"cold={cold:.4f}s warm={warm:.4f}s"
+
+
+# ---------- task-name resolver (friendly -> column) ----------
+
+
+def test_resolve_task_name_friendly_to_column(tmp_path: Path) -> None:
+    """Friendly name in manifest's task_rename map -> canonical column."""
+    import json
+
+    from transfermtl.data.manifest import resolve_task_name
+
+    (tmp_path / "tox21.json").write_text(
+        json.dumps({"task_rename": {"NR-AR": "task_1", "NR-AR-LBD": "task_2"}})
+    )
+    assert resolve_task_name("NR-AR", "tox21", manifest_dir=tmp_path) == "task_1"
+    assert resolve_task_name("NR-AR-LBD", "tox21", manifest_dir=tmp_path) == "task_2"
+
+
+def test_resolve_task_name_passthrough_when_already_column(tmp_path: Path) -> None:
+    """If `name` is already in available_columns, return it verbatim."""
+    import json
+
+    from transfermtl.data.manifest import resolve_task_name
+
+    (tmp_path / "tox21.json").write_text(
+        json.dumps({"task_rename": {"NR-AR": "task_1"}})
+    )
+    # Even though tmp_path has a manifest, passing `task_1` directly should
+    # short-circuit and return as-is.
+    assert (
+        resolve_task_name(
+            "task_1", "tox21", available_columns=["task_1"], manifest_dir=tmp_path
+        )
+        == "task_1"
+    )
+
+
+def test_resolve_task_name_no_manifest(tmp_path: Path) -> None:
+    """Synthetic-fixture path: no manifest exists, return name unchanged."""
+    from transfermtl.data.manifest import resolve_task_name
+
+    # tmp_path is empty -> no JSON file. Resolver must not raise.
+    assert resolve_task_name("task_1", "fake_dataset", manifest_dir=tmp_path) == "task_1"
+
+
+def test_resolve_task_name_unknown_passes_through(tmp_path: Path) -> None:
+    """Unknown name with a manifest present is returned unchanged so the
+    caller raises a clear KeyError against the parquet."""
+    import json
+
+    from transfermtl.data.manifest import resolve_task_name
+
+    (tmp_path / "tox21.json").write_text(json.dumps({"task_rename": {"NR-AR": "task_1"}}))
+    assert (
+        resolve_task_name("NotAReal-Task", "tox21", manifest_dir=tmp_path)
+        == "NotAReal-Task"
+    )
+
+
+def test_load_task_rename_handles_missing_or_malformed(tmp_path: Path) -> None:
+    """Missing manifest -> empty dict; malformed `task_rename` -> empty dict."""
+    import json
+
+    from transfermtl.data.manifest import load_task_rename
+
+    # Missing JSON file.
+    assert load_task_rename("never_prepared", manifest_dir=tmp_path) == {}
+
+    # JSON without `task_rename`.
+    (tmp_path / "noremap.json").write_text(json.dumps({"row_count": 7}))
+    assert load_task_rename("noremap", manifest_dir=tmp_path) == {}
+
+    # JSON with non-dict `task_rename` (defensive: should not crash).
+    (tmp_path / "broken.json").write_text(json.dumps({"task_rename": ["not", "a", "dict"]}))
+    assert load_task_rename("broken", manifest_dir=tmp_path) == {}

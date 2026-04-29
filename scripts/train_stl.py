@@ -16,6 +16,7 @@ from pathlib import Path
 
 import torch
 
+from transfermtl.data.manifest import resolve_task_name
 from transfermtl.training import (
     STLArtifacts,
     TrainConfig,
@@ -58,9 +59,13 @@ def main(argv: list[str] | None = None) -> int:
     split_path = SPLITS_DIR / args.dataset / "split.parquet"
     split_df = read_parquet(split_path, schema=SplitSchema)
 
-    train = load_pyg_dataset(split_df, "train", [args.task], cache_dir=CACHE_DIR)
-    val = load_pyg_dataset(split_df, "val", [args.task], cache_dir=CACHE_DIR)
-    test = load_pyg_dataset(split_df, "test", [args.task], cache_dir=CACHE_DIR)
+    column = resolve_task_name(args.task, args.dataset, list(split_df.columns))
+    if column != args.task:
+        log.info("resolved task %s -> column %s", args.task, column)
+
+    train = load_pyg_dataset(split_df, "train", [column], cache_dir=CACHE_DIR)
+    val = load_pyg_dataset(split_df, "val", [column], cache_dir=CACHE_DIR)
+    test = load_pyg_dataset(split_df, "test", [column], cache_dir=CACHE_DIR)
     log.info("train=%d val=%d test=%d", len(train), len(val), len(test))
 
     wandb_logging.init(

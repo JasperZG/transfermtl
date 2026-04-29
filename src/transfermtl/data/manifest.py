@@ -78,3 +78,52 @@ def _library_versions() -> dict[str, str]:
         except ImportError:
             versions[name] = "missing"
     return versions
+
+
+def load_task_rename(
+    dataset: str,
+    manifest_dir: Path | None = None,
+) -> dict[str, str]:
+    """Return the friendly→column-name mapping written by `prepare_dataset`.
+
+    A2's data pipeline stores original task labels (e.g. ``NR-AR``) under
+    canonical ``task_1..task_K`` columns to keep ``SplitSchema`` clean and
+    avoid filesystem-unfriendly characters in the parquet schema. The
+    original→canonical map is persisted under the ``task_rename`` key in
+    ``outputs/data_manifest/{dataset}.json``.
+
+    Returns an empty dict when the manifest is absent (e.g. the synthetic
+    test fixture, where columns are already named ``task_1`` / ``task_2``).
+    """
+    mdir = manifest_dir or MANIFEST_DIR
+    json_path = mdir / f"{dataset}.json"
+    if not json_path.exists():
+        return {}
+    sidecar = json.loads(json_path.read_text())
+    rename = sidecar.get("task_rename")
+    if not isinstance(rename, dict):
+        return {}
+    return {str(k): str(v) for k, v in rename.items()}
+
+
+def resolve_task_name(
+    name: str,
+    dataset: str,
+    available_columns: list[str] | None = None,
+    manifest_dir: Path | None = None,
+) -> str:
+    """Resolve a CLI-provided task name to its split-parquet column name.
+
+    - If ``name`` is already present in ``available_columns``, return it
+      unchanged (already a canonical column).
+    - Otherwise look up ``name`` in the manifest's ``task_rename`` map and
+      return the mapped column name.
+    - If neither resolves, return ``name`` as-is so the caller can raise a
+      clear ``KeyError`` against the parquet.
+    """
+    if available_columns is not None and name in available_columns:
+        return name
+    rename = load_task_rename(dataset, manifest_dir=manifest_dir)
+    if name in rename:
+        return rename[name]
+    return name

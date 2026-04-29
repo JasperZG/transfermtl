@@ -14,6 +14,7 @@ from pathlib import Path
 
 import torch
 
+from transfermtl.data.manifest import resolve_task_name
 from transfermtl.training import (
     MTLArtifacts,
     TrainConfig,
@@ -53,14 +54,26 @@ def main(argv: list[str] | None = None) -> int:
     log.info("git=%s dirty=%s", current_sha(), dirty_tree_warning())
 
     cfg = TrainConfig(max_epochs=args.max_epochs, batch_size=args.batch_size)
-    tasks = [args.task_i, args.task_j]
 
     split_path = SPLITS_DIR / args.dataset / "split.parquet"
     split_df = read_parquet(split_path, schema=SplitSchema)
 
-    train = load_pyg_dataset(split_df, "train", tasks, cache_dir=CACHE_DIR)
-    val = load_pyg_dataset(split_df, "val", tasks, cache_dir=CACHE_DIR)
-    test = load_pyg_dataset(split_df, "test", tasks, cache_dir=CACHE_DIR)
+    columns = [
+        resolve_task_name(args.task_i, args.dataset, list(split_df.columns)),
+        resolve_task_name(args.task_j, args.dataset, list(split_df.columns)),
+    ]
+    if columns != [args.task_i, args.task_j]:
+        log.info(
+            "resolved tasks (%s, %s) -> columns (%s, %s)",
+            args.task_i,
+            args.task_j,
+            columns[0],
+            columns[1],
+        )
+
+    train = load_pyg_dataset(split_df, "train", columns, cache_dir=CACHE_DIR)
+    val = load_pyg_dataset(split_df, "val", columns, cache_dir=CACHE_DIR)
+    test = load_pyg_dataset(split_df, "test", columns, cache_dir=CACHE_DIR)
     log.info("train=%d val=%d test=%d", len(train), len(val), len(test))
 
     wandb_logging.init(
