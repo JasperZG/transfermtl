@@ -1,0 +1,5 @@
+n_iter: 1000
+random_partitions: 200
+ci_alpha: 0.05
+seed_mixing: true
+level1_default: scaffold

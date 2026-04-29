@@ -1,0 +1,125 @@
+{
+  "wave": 1,
+  "agent": "A1",
+  "mission": "Foundation & contract lock",
+  "status": "complete",
+  "owned_files": {
+    "build_and_tooling": [
+      "pyproject.toml",
+      "environment.yml",
+      "environment-dev.yml",
+      ".pre-commit-config.yaml",
+      ".gitignore",
+      "Makefile",
+      ".github/workflows/ci.yml"
+    ],
+    "source_skeleton": [
+      "src/transfermtl/__init__.py",
+      "src/transfermtl/utils/__init__.py",
+      "src/transfermtl/utils/seeding.py",
+      "src/transfermtl/utils/logging.py",
+      "src/transfermtl/utils/io.py",
+      "src/transfermtl/utils/git.py",
+      "src/transfermtl/utils/registry.py",
+      "src/transfermtl/utils/types.py",
+      "src/transfermtl/utils/schemas.py",
+      "src/transfermtl/utils/config.py",
+      "src/transfermtl/data/__init__.py",
+      "src/transfermtl/partition/__init__.py",
+      "src/transfermtl/models/__init__.py",
+      "src/transfermtl/training/__init__.py",
+      "src/transfermtl/bootstrap/__init__.py",
+      "src/transfermtl/validity/__init__.py",
+      "src/transfermtl/null/__init__.py",
+      "src/transfermtl/gradients/__init__.py",
+      "src/transfermtl/benefits/__init__.py",
+      "src/transfermtl/indices/__init__.py",
+      "src/transfermtl/predictor/__init__.py",
+      "src/transfermtl/architecture/__init__.py",
+      "src/transfermtl/baselines/__init__.py",
+      "src/transfermtl/eval/__init__.py",
+      "src/transfermtl/analysis/__init__.py"
+    ],
+    "configs": [
+      "configs/_shared/encoder_gcn.yaml",
+      "configs/_shared/train_default.yaml",
+      "configs/_shared/bootstrap.yaml",
+      "configs/_shared/preprocess.yaml",
+      "configs/_shared/_lock.yaml"
+    ],
+    "tests": [
+      "tests/__init__.py",
+      "tests/conftest.py",
+      "tests/synthetic_fixture/__init__.py",
+      "tests/synthetic_fixture/build.py",
+      "tests/test_utils.py",
+      "tests/test_synthetic_fixture.py"
+    ],
+    "manifests": [
+      "outputs/manifests/wave1_complete.json"
+    ]
+  },
+  "frozen_contracts": {
+    "schemas_module": "src/transfermtl/utils/schemas.py",
+    "schemas": [
+      "SplitSchema",
+      "PartitionSchema",
+      "PredictionSchema",
+      "GradientAffinitySchema",
+      "RegionBenefitSchema",
+      "PairIndicesSchema",
+      "MeaningfulPairSchema",
+      "PredictorScoresSchema"
+    ],
+    "types_module": "src/transfermtl/utils/types.py",
+    "types": [
+      "BootstrapResult",
+      "ValidityFlag",
+      "HierarchicalSamples",
+      "RegionStats",
+      "PairIndices"
+    ],
+    "lock_file": "configs/_shared/_lock.yaml",
+    "locked_yaml_files": [
+      "encoder_gcn.yaml",
+      "train_default.yaml",
+      "bootstrap.yaml",
+      "preprocess.yaml"
+    ]
+  },
+  "synthetic_fixture": {
+    "build_seed": 12345,
+    "n_molecules": 200,
+    "n_regions": 2,
+    "n_tasks": 2,
+    "scaffolds_per_region": 20,
+    "split_70_15_15_scaffold_stratified": true,
+    "ground_truth": {
+      "region_0": "task_1 == task_2 (aligned)",
+      "region_1": "task_1 != task_2 (opposed)"
+    },
+    "outputs": [
+      "tests/synthetic_fixture/data.parquet",
+      "tests/synthetic_fixture/partition.parquet"
+    ]
+  },
+  "acceptance": {
+    "pip_install_e_dev": "pass (Python 3.11.15)",
+    "pytest": "14 passed",
+    "ruff_check": "clean",
+    "black_check": "clean",
+    "mypy_strict": "clean (25 source files)",
+    "make_targets": ["test", "test-fast", "lint", "format", "typecheck", "lock-check", "clean"],
+    "ci_workflow": ".github/workflows/ci.yml runs test+lint+typecheck and a separate lock-check job",
+    "schema_imports_smoke": "pass",
+    "type_imports_smoke": "pass",
+    "lock_check_pass": true
+  },
+  "notes_for_wave2": [
+    "Schemas and types are frozen — do not modify src/transfermtl/utils/{schemas.py,types.py} without a coordination PR.",
+    "The synthetic fixture is the standard testing dataset; request via pytest fixtures synthetic_dataset / synthetic_split / synthetic_partition / synthetic_combined.",
+    "configs/_shared/* are checksum-locked. Any change must update _lock.yaml; CI will fail otherwise.",
+    "Empty namespace packages exist for data/, partition/, models/, training/, bootstrap/, validity/, null/, gradients/, benefits/, indices/, predictor/, architecture/, baselines/, eval/, analysis/ — agents fill in their own modules without racing on directory creation.",
+    "All Wave 2+ scalars must come with hierarchical-bootstrap CIs (A4 builds the framework). Plain iid bootstrap is incorrect."
+  ]
+}

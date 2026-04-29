@@ -1,0 +1,14 @@
+split_seed: 42
+train_frac: 0.70
+val_frac: 0.15
+test_frac: 0.15
+n_min: 50
+test_min_clf: 30
+test_min_reg: 50
+test_min_pos: 5
+test_min_neg: 5
+epsilon_clf: 1.5
+epsilon_reg: 0.10
+ci_width_max: 0.4
+grad_norm_min: 1.0e-6
+grad_norm_zero: 1.0e-8

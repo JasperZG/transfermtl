@@ -1,0 +1,8 @@
+name: gcn
+n_layers: 3
+hidden_dim: 256
+activation: relu
+dropout: 0.1
+pool: mean
+atom_feature_dim: 74
+bond_feature_dim: 12

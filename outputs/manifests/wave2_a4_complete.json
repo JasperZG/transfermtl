@@ -1,0 +1,93 @@
+{
+  "wave": 2,
+  "agent": "A4",
+  "mission": "Statistical core: hierarchical bootstrap, validity, random-partition null (plan §2.10-2.13)",
+  "status": "complete",
+  "owned_files": {
+    "src": [
+      "src/transfermtl/bootstrap/__init__.py",
+      "src/transfermtl/bootstrap/hierarchical.py",
+      "src/transfermtl/bootstrap/within_region.py",
+      "src/transfermtl/bootstrap/seed_mixing.py",
+      "src/transfermtl/bootstrap/calibration.py",
+      "src/transfermtl/bootstrap/percentile.py",
+      "src/transfermtl/validity/__init__.py",
+      "src/transfermtl/validity/local_support.py",
+      "src/transfermtl/validity/meaningful_pair.py",
+      "src/transfermtl/validity/io.py",
+      "src/transfermtl/null/__init__.py",
+      "src/transfermtl/null/run_null.py",
+      "src/transfermtl/null/pvalue.py",
+      "src/transfermtl/null/io.py"
+    ],
+    "tests": [
+      "tests/test_bootstrap.py",
+      "tests/test_validity.py",
+      "tests/test_null.py"
+    ],
+    "manifests": [
+      "outputs/manifests/wave2_a4_complete.json"
+    ]
+  },
+  "produced_artifacts": {
+    "library_only": "A4 ships pure-math infrastructure; downstream agents (A6, A7, A8) invoke these to write outputs/analysis/{dataset}/meaningful_pairs.parquet and outputs/analysis/{dataset}/null_dist_*.npy in Wave 3+.",
+    "deferred": {
+      "meaningful_pairs.parquet": "outputs/analysis/{dataset}/meaningful_pairs.parquet — wired by A6 in Wave 3 once region-level Δ_ij(r) bootstraps land",
+      "null_dist_*.npy": "outputs/analysis/{dataset}/null_dist_{statistic}_M{M}.npy — A6 supplies compute_statistic in Wave 3"
+    }
+  },
+  "modules": {
+    "bootstrap": {
+      "spec": "plan §2.10",
+      "hierarchical_bootstrap": "Two-level resampling: scaffolds (level 1) with replacement, then compounds within each scaffold (level 2). Optional level 3 (seed mixing) when seeds is supplied. Returns BootstrapResult(estimate, ci_lower, ci_upper, samples?).",
+      "within_region_bootstrap": "Region-restricted variant; resamples scaffolds within the target region only. Used for G_ij(r), Δ_ij(r) CIs in Wave 3.",
+      "seed_mixing.draw_seeds": "Uniform-with-replacement seed draw across n_iter; verified uniform on test_seed_mixing_uniform.",
+      "calibration.run_calibration_check": "Implements §2.10 pre-pilot calibration. Three checks: (1) identity statistic CI width < 0.05; (2) mean statistic non-degenerate CI; (3) ≥80% of bootstrap distributions over a panel of 5 statistics pass Shapiro-Wilk normality (alpha=0.01). Raises CalibrationError on failure.",
+      "percentile.percentile_ci": "Two-sided percentile CI with NaN handling; alpha=0.05 default."
+    },
+    "validity": {
+      "spec": "plan §2.11-2.12",
+      "ValidityConfig": "Frozen dataclass mirroring configs/_shared/preprocess.yaml: n_min, test_min_clf, test_min_reg, test_min_pos, test_min_neg, ci_width_max, grad_norm_min, epsilon_clf, epsilon_reg, n_min_valid_regions=3.",
+      "check_local_support": "Five §2.11 conditions; failures recorded in ValidityFlag.failed_reasons under canonical tags REASON_N_TRAIN, REASON_N_TEST, REASON_LABEL_BALANCE, REASON_CI_WIDTH, REASON_GRAD_NORM.",
+      "check_meaningful": "Four §2.12 conditions; returns (is_meaningful, failed_reasons) under tags COND_VALID_REGIONS, COND_LARGE_DELTA, COND_LABEL_DISTRIBUTION, COND_TEST_SIZE.",
+      "io.write_meaningful_pairs": "Writes outputs/analysis/{dataset}/meaningful_pairs.parquet validated against MeaningfulPairSchema."
+    },
+    "null": {
+      "spec": "plan §2.13",
+      "build_null_distribution": "Skeleton loop over n_partitions; A6 supplies compute_statistic in Wave 3. Raises NotImplementedError when compute_statistic is None.",
+      "empirical_pvalue": "(1 + #{b: null[b] >= observed}) / (1 + B); empty null returns 1.0; NaN entries are dropped.",
+      "io.save_null_distribution / load_null_distribution": "npy round-trip at outputs/analysis/{dataset}/null_dist_{statistic}_M{M}.npy."
+    }
+  },
+  "acceptance": {
+    "all_tests_pass": "32/32 across tests/test_bootstrap.py, tests/test_validity.py, tests/test_null.py (full repo suite: 98/98)",
+    "bootstrap_matches_clt_within_0_02": "iid normal n=1000, seed=42, B=1000: HB CI vs mean ± 1.96·σ/√n delta < 0.02 on each tail (test_bootstrap_matches_normal_clt_approximation)",
+    "calibration_passes_on_synthetic_fixture": "task_1 column of A1 fixture (200 mols, 40 scaffolds) with B=400 — passes identity-width, mean-non-degenerate, and Shapiro-Wilk panel checks",
+    "B1000_under_30s_single_cpu": "iid B=1000 on n=1000: 6.6s; clustered B=1000 on n=400 (80 scaffolds × 5): 0.5s",
+    "BootstrapResult_json_serializable_excluding_samples": "bootstrap_result_to_dict(r, include_samples=False) → json.dumps OK; with include_samples=True samples are flattened to a list",
+    "manifest_exists": true
+  },
+  "tooling": {
+    "ruff_check": "clean on src/transfermtl/{bootstrap,validity,null} and tests/test_{bootstrap,validity,null}.py",
+    "mypy_strict": "clean on src/transfermtl/{bootstrap,validity,null} (14 source files)"
+  },
+  "dependencies_observed": {
+    "A1_contracts": "BootstrapResult, ValidityFlag, HierarchicalSamples (utils/types.py); MeaningfulPairSchema (utils/schemas.py); read_parquet/write_parquet, read_npy/write_npy (utils/io.py); configs/_shared/{bootstrap,preprocess}.yaml — all consumed unchanged",
+    "A1_synthetic_fixture": "tests/synthetic_fixture/build.py used by test_calibration_check_passes_on_synthetic via the synthetic_combined fixture"
+  },
+  "out_of_scope_handed_to": {
+    "A6_wave3": [
+      "Implement compute_statistic for build_null_distribution",
+      "Wire G_ij(r) bootstrap → check_local_support → write_meaningful_pairs end-to-end",
+      "Use within_region_bootstrap on real region indices from A5 partitions"
+    ],
+    "A7_wave3": "Run run_calibration_check on real Tox21 G_ii(r) data as part of pilot greenlight",
+    "A8_wave4": "Use percentile_ci / hierarchical_bootstrap for incremental R² confidence intervals"
+  },
+  "notes_for_downstream": [
+    "ValidityConfig defaults read directly from configs/_shared/preprocess.yaml; downstream code that wants different thresholds should construct an explicit ValidityConfig rather than mutating the YAML (locked by configs/_shared/_lock.yaml).",
+    "Reason tags (REASON_N_TRAIN, …) and condition tags (COND_VALID_REGIONS, …) are exported from transfermtl.validity for downstream telemetry. Test parametrizations rely on these names, so renames are a coordination-PR change.",
+    "hierarchical_bootstrap accepts level1='scaffold'|'cluster' for documentation only; the cluster identity always lives in HierarchicalSamples.scaffold_ids. Latent partitioning passes cluster IDs there.",
+    "When seeds is not None but data.seed_ids is None, seed mixing is silently disabled (no error). Callers who require seed mixing should populate seed_ids."
+  ]
+}

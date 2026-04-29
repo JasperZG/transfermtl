@@ -1,0 +1,98 @@
+{
+  "wave": 2,
+  "agent": "A3",
+  "mission": "Models + training (GCN encoder, MLP heads, STL/pairwise-MTL/all-task-MTL)",
+  "status": "complete",
+  "owned_files": {
+    "models": [
+      "src/transfermtl/models/__init__.py",
+      "src/transfermtl/models/gcn.py",
+      "src/transfermtl/models/heads.py",
+      "src/transfermtl/models/multihead.py",
+      "src/transfermtl/models/registry.py"
+    ],
+    "training": [
+      "src/transfermtl/training/__init__.py",
+      "src/transfermtl/training/loops.py",
+      "src/transfermtl/training/data.py",
+      "src/transfermtl/training/checkpoint.py",
+      "src/transfermtl/training/predict.py",
+      "src/transfermtl/training/stl.py",
+      "src/transfermtl/training/pairwise_mtl.py",
+      "src/transfermtl/training/all_task_mtl.py"
+    ],
+    "scripts": [
+      "scripts/train_stl.py",
+      "scripts/train_pairwise_mtl.py",
+      "scripts/train_all_task_mtl.py"
+    ],
+    "tests": [
+      "tests/test_models.py",
+      "tests/test_training.py",
+      "tests/synthetic_fixture/featurize.py"
+    ],
+    "manifests": [
+      "outputs/manifests/wave2_a3_complete.json"
+    ]
+  },
+  "produced_artifacts_at_runtime": {
+    "checkpoints": "outputs/checkpoints/{dataset}/{stl|mtl|all_task}/.../seed{s}.pt",
+    "predictions": "outputs/predictions/{dataset}/{stl|mtl|all_task}/.../seed{s}.parquet"
+  },
+  "key_signatures": {
+    "encoder_factory": "transfermtl.utils.registry.build('encoder', 'gcn')",
+    "stl_entrypoint": "transfermtl.training.train_stl(train_data, val_data, task, seed, cfg, ...)",
+    "pairwise_mtl_entrypoint": "transfermtl.training.train_pairwise_mtl(train_data, val_data, task_i, task_j, seed, cfg, ...)",
+    "all_task_mtl_entrypoint": "transfermtl.training.train_all_task_mtl(train_data, val_data, tasks, seed, cfg, ...)",
+    "checkpoint_io": "transfermtl.training.{save_checkpoint, load_checkpoint}",
+    "predictions_io": "transfermtl.training.save_predictions(path, model, dataset, seed) -> PredictionSchema parquet",
+    "data_loader": "transfermtl.training.load_pyg_dataset(split_df, split, tasks, cache_dir=..., featurize_fn=...)"
+  },
+  "encoder_specification": {
+    "name": "gcn",
+    "architecture": "Linear(74->256) -> 3 x GCNConv(256,256) with ReLU+dropout=0.1 between -> mean pool -> Linear(256->256)",
+    "parameter_count": 282368,
+    "in_range_200K_800K": true,
+    "config_source": "configs/_shared/encoder_gcn.yaml (locked)"
+  },
+  "training_specification": {
+    "optimizer": "AdamW",
+    "lr": 1.0e-3,
+    "weight_decay": 1.0e-2,
+    "batch_size": 32,
+    "max_epochs": 100,
+    "patience": 25,
+    "lr_schedule": "cosine",
+    "lr_min": 1.0e-5,
+    "grad_clip": 1.0,
+    "config_source": "configs/_shared/train_default.yaml (locked)"
+  },
+  "synthetic_fixture_adapter": {
+    "module": "tests/synthetic_fixture/featurize.py",
+    "rationale": "fixture uses fake SMILES (smi_X_NN_M); RDKit cannot parse them, so A2's real featurizer is unusable. A3 provides a 4-node deterministic graph builder that mirrors the 74-dim atom-feature contract and includes a per-compound noisy label-leak channel so STL/MTL converge in <1s on CPU.",
+    "production_path_unaffected": "src/transfermtl/training/data.py reads PyG Data objects from outputs/cache/featurized/ as written by A2; the fixture adapter is test-only."
+  },
+  "acceptance": {
+    "tests_passing": "14/14 in tests/test_models.py + tests/test_training.py",
+    "ruff_check": "clean (A3 files)",
+    "black_check": "clean (A3 files)",
+    "mypy_strict": "clean (A3 files; 13 source modules)",
+    "synthetic_stl_runtime_cpu_seconds": 0.73,
+    "registry_smoke": "build('encoder', 'gcn') returns GCNEncoder; param count 282368",
+    "wandb_logging_tag": "tsh-mtl (via transfermtl.utils.logging.init); offline-safe no-op when wandb missing"
+  },
+  "deferred_for_real_data": [
+    "STL Tox21 NR-AR val AUC > 0.75 — requires A2's split.parquet + featurization cache (not yet present at A3 PR time)",
+    "Pairwise MTL convergence on (NR-AR, NR-AR-LBD) Tox21 — same dependency",
+    "All-task MTL <20 GPU-min on H100 — same dependency, plus GPU access"
+  ],
+  "out_of_scope_observation": {
+    "test_validity_failure": "tests/test_validity.py::test_meaningful_pair_4_conditions fails with 'assert (True is False)' on c4 setup. This file is owned by A4 (statistical core), not A3. Surfaced for A4's coordination."
+  },
+  "notes_for_wave3": [
+    "A6 should call `transfermtl.training.load_checkpoint(path)` and rebuild the model via `MultiHeadModel(GCNEncoder(), task_names)` then `model.load_state_dict(bundle.model_state)` — checkpoints store cfg_dict + seed + git_sha for reproducibility.",
+    "Predictions parquet rows are one-per-(smiles, task); for STL there are n_test rows, for pairwise MTL there are 2*n_test rows.",
+    "PyG `Data.y` is shaped (1, n_tasks); after PyG batching `batch.y` is (B, n_tasks). NaN entries are masked by the loss functions in stl/pairwise_mtl/all_task_mtl.",
+    "transfermtl.training.load_pyg_dataset is the single entrypoint for turning A2's split parquet + featurization cache into a list of PyG Data objects with .y and .smi attached."
+  ]
+}

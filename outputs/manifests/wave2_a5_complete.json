@@ -1,0 +1,120 @@
+{
+  "wave": 2,
+  "agent": "A5",
+  "mission": "Region partitioning (plan §2.6)",
+  "status": "complete",
+  "owned_files": {
+    "src": [
+      "src/transfermtl/partition/__init__.py",
+      "src/transfermtl/partition/scaffold.py",
+      "src/transfermtl/partition/latent.py",
+      "src/transfermtl/partition/knn.py",
+      "src/transfermtl/partition/random_null.py",
+      "src/transfermtl/partition/io.py"
+    ],
+    "scripts": [
+      "scripts/compute_partitions.py"
+    ],
+    "tests": [
+      "tests/test_partition.py"
+    ],
+    "manifests": [
+      "outputs/manifests/wave2_a5_complete.json"
+    ]
+  },
+  "produced_artifacts": {
+    "tox21": [
+      "outputs/partitions/tox21/scaffold_M5.parquet",
+      "outputs/partitions/tox21/random_b{0..199}.parquet"
+    ],
+    "sider": [
+      "outputs/partitions/sider/scaffold_M5.parquet"
+    ],
+    "deferred": {
+      "latent": "outputs/partitions/{dataset}/latent_M{M}.parquet — gated on A3's all-task checkpoint; module ready, CLI raises NotImplementedError until A3 lands",
+      "knn": "outputs/partitions/{dataset}/knn_M{M}.parquet — same gating as latent",
+      "M_variants_real_data": "M ∈ {3, 8, 10} parquets for real datasets — produce on demand once downstream consumers land in Wave 3"
+    }
+  },
+  "schemes": {
+    "scaffold": {
+      "spec": "plan §2.6.1",
+      "algorithm": "HAC on Tanimoto distance over scaffold Morgan FPs, average linkage; merge undersized regions by nearest-centroid Euclidean distance until every region clears 2*n_min train compounds (or only one region remains)",
+      "tests": [
+        "test_scaffold_deterministic",
+        "test_scaffold_min_size_enforced[25|50|100]",
+        "test_scaffold_partition_schema_validates",
+        "test_scaffold_M_variants[3|5|8|10]",
+        "test_scaffold_recovers_two_regions",
+        "test_tanimoto_distance_matrix_basic"
+      ]
+    },
+    "latent": {
+      "spec": "plan §2.6.2",
+      "algorithm": "k-means on encoder embeddings, k-means++ init, n_init=10; default seed=0",
+      "stub_policy": "compute_latent_partition accepts embed_fn or precomputed embeddings; checkpoint_path raises NotImplementedError until A3 lands",
+      "tests": [
+        "test_latent_partition_clusters_synthetic_correctly (ARI > 0.8)",
+        "test_latent_partition_schema_validates",
+        "test_latent_partition_deterministic"
+      ]
+    },
+    "knn": {
+      "spec": "plan §2.6.3",
+      "algorithm": "anchor each region by mean compound embedding within the scaffold cluster; assign each compound to the nearest anchor in encoder space",
+      "stub_policy": "compute_knn_partition requires explicit embeddings/embed_fn until A3 lands",
+      "tests": [
+        "test_knn_consistent_with_scaffold (pair-Jaccard >= 0.5)",
+        "test_knn_partition_schema_validates"
+      ]
+    },
+    "random": {
+      "spec": "plan §2.6.4",
+      "algorithm": "shuffle compound indices, slice into chunks matching scaffold-partition region sizes; b-th partition uses rng_seed = base_seed + b",
+      "tests": [
+        "test_random_partition_size_distribution_matches",
+        "test_random_partition_seed_determinism",
+        "test_random_partition_seeds_differ",
+        "test_random_partition_schema_validates"
+      ]
+    }
+  },
+  "acceptance": {
+    "all_schemes_schema_valid": "pass (all four scheme outputs validate against PartitionSchema in tests; random parquets validated on disk)",
+    "tox21_scaffold_M5_meets_2nmin": {
+      "n_compounds": 7687,
+      "n_regions": 4,
+      "train_per_region": {"0": 1743, "1": 1716, "2": 233, "3": 1689},
+      "all_ge_2nmin_100": true
+    },
+    "sider_scaffold_M5_meets_2nmin": {
+      "n_compounds": 1393,
+      "n_regions": 3
+    },
+    "random_size_distribution_matches": "verified across b=0,50,100,199 and asserted by test_random_partition_size_distribution_matches",
+    "latent_synthetic_ARI_gt_0_8": "pass (ARI = 1.0 on the deliberately separable synthetic fixture)",
+    "scaffold_runtime_tox21_M5": "~3s on a single CPU (target <2 minutes)",
+    "all_tests_pass": "23/23 in tests/test_partition.py",
+    "manifest_exists": true
+  },
+  "tooling": {
+    "ruff_check": "clean on partition/, tests/test_partition.py, scripts/compute_partitions.py",
+    "black_check": "clean on the same set",
+    "mypy_strict": "clean on src/transfermtl/partition (6 source files)"
+  },
+  "dependencies_observed": {
+    "A1_contracts": "PartitionSchema, SplitSchema, read_parquet/write_parquet, registry, seeding utilities — used unchanged",
+    "A2_outputs": "outputs/splits/{dataset}/split.parquet (SplitSchema) and outputs/cache/scaffold_fps/{dataset}.parquet (columns scaffold, fp) — both consumed",
+    "A3_outputs": "outputs/checkpoints/{dataset}/all_task/seed0.pt — referenced via compute_latent_partition's path-injection hook; real loader raises NotImplementedError until A3 lands"
+  },
+  "out_of_scope": [
+    "Computing G_ij(r) or Δ_ij(r) — A6 (Wave 3)",
+    "Building null statistics from random partitions — A4 owns null framework, A6 wires it (Wave 3)",
+    "Training the all-task MTL model — A3 (Wave 2 in flight)"
+  ],
+  "notes_for_downstream": [
+    "Tests prefer the *_from_* low-level helpers; CLI/IO wrappers compose them with disk reads. Wave 3 modules can build their own embed_fn closures over A3's encoder once it lands without changing partition/ internals.",
+    "The merge step in scaffold_partition_from_fps may reduce region count below M (e.g. Tox21 M=5 → 4 regions due to one undersized cluster); this is the §2.6.1 step-5 contract.",
+    "Random partitions for downstream null calibration use base_seed=0 and b ∈ [0, 200); seed offset = base_seed + b."
+  ]
+}

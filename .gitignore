@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Training artifacts
+*.pkl
+*.pt
+wandb/
+logs/
+
+# Raw downloaded datasets (re-fetchable from MoleculeNet)
+data/raw/
+
+# Outputs (gitignored except manifests, see negation below).
+# Note: ignore *contents* of outputs/ (outputs/*) rather than the directory
+# itself, so the !outputs/manifests/ re-inclusion below actually works.
+outputs/*
+
+# Keep manifests inside outputs/
+!outputs/manifests/
+!outputs/manifests/**
+
+# Test cache parquets
+tests/synthetic_fixture/*.parquet

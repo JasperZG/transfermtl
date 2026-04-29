@@ -1,0 +1,5 @@
+sha256:
+  bootstrap.yaml: ee3d69d89a55853b4dc1f54e32a0a7a210f587fc6b5c069a11d6cecfee442d2d
+  encoder_gcn.yaml: 965625126fc62ec0089f8cdef6a7150dc113d8711b19c87e68b03171b8d0414e
+  preprocess.yaml: 1f2845d610c4daeb78ee51bb2abc5b9b45eebff449a1c9f16869370df1fce3d1
+  train_default.yaml: 2ed7950f8e442d2a2b4e28b1bbf8c010093669da1e07bc519d1498b9c43e94f3

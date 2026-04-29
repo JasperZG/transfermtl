@@ -1,0 +1,101 @@
+{
+  "wave": 2,
+  "agent": "A2",
+  "mission": "Data pipeline (Tox21 + SIDER)",
+  "status": "complete",
+  "owned_files": {
+    "source_modules": [
+      "src/transfermtl/data/__init__.py",
+      "src/transfermtl/data/datasets.py",
+      "src/transfermtl/data/standardize.py",
+      "src/transfermtl/data/scaffolds.py",
+      "src/transfermtl/data/fingerprints.py",
+      "src/transfermtl/data/featurize.py",
+      "src/transfermtl/data/splits.py",
+      "src/transfermtl/data/manifest.py"
+    ],
+    "scripts": [
+      "scripts/prepare_dataset.py"
+    ],
+    "tests": [
+      "tests/test_data_pipeline.py"
+    ],
+    "manifest": [
+      "outputs/manifests/wave2_a2_complete.json"
+    ]
+  },
+  "produced_artifacts": {
+    "splits": [
+      "outputs/splits/tox21/split.parquet",
+      "outputs/splits/sider/split.parquet"
+    ],
+    "data_manifests": [
+      "outputs/data_manifest/tox21.json",
+      "outputs/data_manifest/sider.json"
+    ],
+    "fingerprint_caches": [
+      "outputs/cache/scaffold_fps/tox21.parquet",
+      "outputs/cache/scaffold_fps/sider.parquet"
+    ],
+    "raw_csv_caches": [
+      "data/raw/tox21/tox21.csv.gz",
+      "data/raw/sider/sider.csv.gz"
+    ],
+    "featurized_cache_dir": "outputs/cache/featurized/  (one .pt per molecule, 16-char sha256 prefix; populated on demand)"
+  },
+  "feature_dims": {
+    "atom": 74,
+    "bond": 12,
+    "atom_recipe_summary": "25 symbol + 8 degree + 6 formal_charge + 4 chirality + 6 num_h + 7 hybridization + 5 num_radical + 6 ring_size_multihot + 3 binary + 4 scalars",
+    "bond_recipe_summary": "5 bond_type + 4 stereo + 3 binary"
+  },
+  "split_sizes": {
+    "tox21": {
+      "rows": 7687,
+      "train": 5381,
+      "val": 1153,
+      "test": 1153,
+      "scaffolds": 2280,
+      "task_columns": 12,
+      "expected_train": 5476,
+      "expected_val": 1174,
+      "expected_test": 1174,
+      "within_tolerance_5pct": true
+    },
+    "sider": {
+      "rows": 1393,
+      "train": 975,
+      "val": 209,
+      "test": 209,
+      "scaffolds": 790,
+      "task_columns": 27,
+      "expected_train": 995,
+      "expected_val": 213,
+      "expected_test": 214,
+      "within_tolerance_5pct": true
+    }
+  },
+  "acceptance": {
+    "prepare_dataset_tox21": "pass (7687 rows, schema-valid)",
+    "prepare_dataset_sider": "pass (1393 rows, schema-valid)",
+    "split_sizes_within_5_percent": true,
+    "idempotent_rerun": "pass (second run logs 'skip: matching raw hash' and returns same parquet path)",
+    "manifest_includes": ["rdkit_version", "pandas_version", "numpy_version", "raw_csv_sha256", "git_sha", "row_count", "scaffold_count", "per_split_counts"],
+    "featurize_cache_skips_on_second_run": "pass (cold 0.069s -> warm <0.001s on 50 SIDER molecules)",
+    "tests": {
+      "test_data_pipeline.py": "15 passed (including test_prepare_dataset_idempotent on real Tox21)",
+      "wave1_tests_still_pass": true
+    },
+    "ruff_check": "clean (data/ + tests/test_data_pipeline.py + scripts/)",
+    "black_check": "clean",
+    "mypy_strict": "clean (data/ files, with rdkit/pyg call-site error codes scoped via per-module override in pyproject.toml)"
+  },
+  "notes_for_consumers": [
+    "Wave 2+ modules read outputs/splits/{dataset}/split.parquet (validated against SplitSchema).",
+    "task_1..task_K columns map back to original label names via outputs/data_manifest/{dataset}.json#task_rename.",
+    "Per-molecule featurized PyG Data objects are loaded from outputs/cache/featurized/{16-char-sha256}.pt; use transfermtl.data.featurize.cache_path_for(smiles) to resolve.",
+    "Raw CSVs are cached under data/raw/{dataset}/ so air-gapped reruns work after first download.",
+    "A5's latent partitioning will read A3's all-task checkpoint, not A2's outputs directly.",
+    "RDKit and torch_geometric are now hard dependencies in pyproject.toml; environment.yml already lists them via conda."
+  ]
+}
