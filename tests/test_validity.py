@@ -98,9 +98,7 @@ def _delta_excluding_zero(magnitude: float) -> BootstrapResult:
 
 
 def _delta_including_zero(magnitude: float) -> BootstrapResult:
-    return BootstrapResult(
-        estimate=magnitude, ci_lower=-abs(magnitude), ci_upper=abs(magnitude)
-    )
+    return BootstrapResult(estimate=magnitude, ci_lower=-abs(magnitude), ci_upper=abs(magnitude))
 
 
 def test_meaningful_all_conditions_pass() -> None:

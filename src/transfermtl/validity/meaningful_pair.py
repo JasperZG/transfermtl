@@ -63,19 +63,13 @@ def check_meaningful(
     #     (label_balance subcondition not in failed_reasons; clf only signal —
     #     for regression we count all regions, since label balance is N/A.)
     n_label_ok = sum(
-        1
-        for f in region_validity.values()
-        if REASON_LABEL_BALANCE not in f.failed_reasons
+        1 for f in region_validity.values() if REASON_LABEL_BALANCE not in f.failed_reasons
     )
     if n_label_ok < cfg.n_min_valid_regions:
         failed.append(COND_LABEL_DISTRIBUTION)
 
     # c4: ≥3 regions with adequate test size.
-    n_test_ok = sum(
-        1
-        for f in region_validity.values()
-        if REASON_N_TEST not in f.failed_reasons
-    )
+    n_test_ok = sum(1 for f in region_validity.values() if REASON_N_TEST not in f.failed_reasons)
     if n_test_ok < cfg.n_min_valid_regions:
         failed.append(COND_TEST_SIZE)
 

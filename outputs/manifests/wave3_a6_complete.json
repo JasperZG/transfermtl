@@ -1,0 +1,101 @@
+{
+  "wave": 3,
+  "agent": "A6",
+  "mission": "Core measurements: regional gradient affinity, regional benefits, sign heterogeneity / H / C indices",
+  "status": "complete",
+  "owned_files": {
+    "source_modules": [
+      "src/transfermtl/gradients/__init__.py",
+      "src/transfermtl/gradients/extract.py",
+      "src/transfermtl/gradients/affinity.py",
+      "src/transfermtl/gradients/trajectory.py",
+      "src/transfermtl/gradients/io.py",
+      "src/transfermtl/benefits/__init__.py",
+      "src/transfermtl/benefits/perf.py",
+      "src/transfermtl/benefits/delta.py",
+      "src/transfermtl/benefits/aggregate.py",
+      "src/transfermtl/indices/__init__.py",
+      "src/transfermtl/indices/sign_heterogeneity.py",
+      "src/transfermtl/indices/heterogeneity_index.py",
+      "src/transfermtl/indices/cancellation.py",
+      "src/transfermtl/indices/io.py"
+    ],
+    "scripts": [
+      "scripts/compute_gradients.py",
+      "scripts/compute_benefits.py",
+      "scripts/compute_indices.py"
+    ],
+    "tests": [
+      "tests/test_gradients.py",
+      "tests/test_benefits.py",
+      "tests/test_indices.py"
+    ],
+    "manifest": [
+      "outputs/manifests/wave3_a6_complete.json"
+    ]
+  },
+  "public_api": {
+    "gradients": [
+      "compute_regional_gradient(checkpoint_path, task, region_data, max_subsample=500) -> (g_vec, n_used, grad_norm)",
+      "compute_gradient_vector(model, data, task, task_index, max_subsample) -> (g_vec, n_used, grad_norm)",
+      "encoder_param_order_hash(model) -> str  (locks flatten order)",
+      "cosine_affinity(g_i, g_j, grad_norm_zero=1e-8) -> float | NaN",
+      "dot_product_affinity(g_i, g_j) -> float",
+      "compute_trajectory_affinity(grad_loader, labels=('final', '0.8', '0.6')) -> dict",
+      "write_region_affinity(dataset, task_i, task_j, seed, rows) -> Path"
+    ],
+    "benefits": [
+      "regional_perf(predictions, region_compounds, task, task_type='clf'|'reg', test_min_*) -> float | NaN",
+      "compute_region_deltas(stl_i, stl_j, mtl, partition, task_i, task_j) -> dict[int, RegionDeltas]",
+      "aggregate_region_benefits(per_seed_preds..., partition, split, task_i, task_j) -> RegionBenefitSchema-valid DataFrame",
+      "write_region_benefits(...) -> Path"
+    ],
+    "indices": [
+      "compute_S_pair(deltas, epsilon=1.5) -> bool",
+      "compute_S_task_specific(deltas_i, deltas_j, epsilon) -> (bool, bool)",
+      "compute_H(deltas, region_test_sizes) -> float",
+      "compute_C(deltas, region_test_sizes, eta=0.5) -> float",
+      "write_pair_indices(dataset, rows) -> Path"
+    ]
+  },
+  "schema_writes": {
+    "GradientAffinitySchema": "outputs/gradients/{ds}/{task_i}_{task_j}/seed{s}/region_affinity.parquet",
+    "RegionBenefitSchema": "outputs/benefits/{ds}/{task_i}_{task_j}/region_benefits.parquet",
+    "PairIndicesSchema": "outputs/analysis/{ds}/pair_indices.parquet"
+  },
+  "acceptance": {
+    "tests_a6": "25 passed (test_gradients 9, test_benefits 6, test_indices 10)",
+    "full_repo_tests": "150 passed",
+    "ruff_check_a6_files": "clean",
+    "black_check_a6_files": "clean",
+    "mypy_strict_a6_modules": "clean (14 source files)",
+    "identity_check_synthetic": "G_ii(r) = 1.0 within 1e-3 (test_identity_check)",
+    "identity_check_real_tox21": "G_ii(r=0) = 1.0 ± 1e-15 on outputs/checkpoints/tox21/stl/task_1/seed0.pt over 76 cached compounds; 282368-dim encoder gradient",
+    "label_shuffle_drives_to_zero": "|mean cos| < 0.20 over 5 trials of independently-labelled task pairs",
+    "encoder_param_order_locked": "encoder_param_order_hash stable across MultiHeadModel rebuilds (with or without extra heads)",
+    "subsample_above_500": "n_used <= 500 enforced",
+    "trajectory_three_checkpoints": "{'final', '0.8', '0.6', '_summary'} keys returned",
+    "delta_pair_recovers_known": "Δ_pair > 0 in aligned region, Δ_pair < 0 in opposed region (synthetic mock predictions)",
+    "task_specific_consistency": "Δ_pair == (Δ_{i←j} + Δ_{j←i})/2 within fp tolerance",
+    "perf_undefined_for_small_region": "regional_perf returns NaN when n < test_min_clf",
+    "perf_undefined_for_single_class": "regional_perf returns NaN on all-positive (or all-negative) region",
+    "bootstrap_ci_attached": "aggregate_region_benefits emits ci_lo/ci_hi for every region; RegionBenefitSchema validates",
+    "S_synthetic_fixture_true": "compute_S_pair returns True when one region has Δ > +ε (CI ≠ 0) and another has Δ < -ε (CI ≠ 0)",
+    "S_requires_ci_excludes_zero": "compute_S_pair returns False when CI on a candidate region crosses 0",
+    "H_zero_for_uniform_deltas": "compute_H == 0 when Δ is constant across regions",
+    "C_large_for_sign_flips": "compute_C > 5 on the synthetic fixture's +3 / -3 deltas",
+    "C_one_when_no_cancellation": "compute_C ≈ 600/(600+0.5) = 0.999 when all Δ have the same sign"
+  },
+  "integration_notes": [
+    "compute_regional_gradient infers task names from checkpoint state-dict keys (heads.<task>.fc1.weight); the encoder factory is the registered 'gcn'.",
+    "compute_region_deltas accepts test_min_* kwargs as None defaults so callers monkey-patching regional_perf (e.g. A7's pilot test) are not silently overridden.",
+    "Within-region bootstrap resamples scaffold groups inside the target region — relies on A4's bootstrap.within_region.within_region_bootstrap.",
+    "encoder_param_order_hash is exposed publicly so A6/A8/A11 can assert flatten order is identical across reruns; the test passes on a 282K-param MultiHeadModel."
+  ],
+  "out_of_scope": [
+    "Predictor evaluation (A8)",
+    "Pilot integration / decision document (A7)",
+    "Phenomenon expansion (A9)",
+    "Architecture variants (A12)"
+  ]
+}

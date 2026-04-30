@@ -116,9 +116,7 @@ def test_hierarchical_resample_respects_clusters() -> None:
     scaffold_ids = np.repeat(np.arange(n_scaffolds), per_scaffold)
     data = HierarchicalSamples(values=values, scaffold_ids=scaffold_ids)
 
-    membership = {
-        s: set(np.where(scaffold_ids == s)[0].tolist()) for s in range(n_scaffolds)
-    }
+    membership = {s: set(np.where(scaffold_ids == s)[0].tolist()) for s in range(n_scaffolds)}
 
     def compute_fn(boot: HierarchicalSamples) -> float:
         # Every value-index (recovered from values' integer encoding) must

@@ -1,0 +1,115 @@
+{
+  "wave": 3,
+  "agent": "A7",
+  "mission": "Pilot integration & decision document (PROJECT GATE)",
+  "status": "scaffolded — gate document not yet rendered (awaiting full pilot run)",
+  "owned_files": {
+    "predictor": [
+      "src/transfermtl/predictor/__init__.py",
+      "src/transfermtl/predictor/pilot_baseline.py",
+      "src/transfermtl/predictor/criteria.py"
+    ],
+    "scripts": [
+      "scripts/select_pilot_pairs.py",
+      "scripts/pilot_decision.py",
+      "scripts/launch_pilot.sh"
+    ],
+    "templates": [
+      "templates/pilot_decision_template.md"
+    ],
+    "tests": [
+      "tests/test_pilot_e2e.py"
+    ],
+    "manifests": [
+      "outputs/manifests/wave3_a7_complete.json"
+    ]
+  },
+  "produced_artifacts_at_runtime": {
+    "pilot_pairs": "outputs/analysis/pilot_pairs.parquet (50 rows: 25 tox21 + 25 sider)",
+    "decision_md": "outputs/analysis/pilot_decision.md (rendered by pilot_decision.py at the end of stage 7)",
+    "summary_parquet": "outputs/analysis/pilot_summary.parquet (machine-readable per-criterion pass/fail)",
+    "figure_preview": "outputs/figures/pilot_figure_2_preview.pdf (regional benefit bar chart for one canonical pair — generated post-A6 once pilot data is in)"
+  },
+  "key_signatures": {
+    "select_pilot_pairs": "scripts.select_pilot_pairs.select_pilot_pairs(seed=42, ...) -> pd.DataFrame[dataset, task_i, task_j, category]",
+    "criteria_phenomenon": "transfermtl.predictor.criteria.evaluate_phenomenon_criteria(PhenomenonResult) -> list[CriterionResult]",
+    "criteria_predictor": "transfermtl.predictor.criteria.evaluate_predictor_criteria(PredictorResult) -> list[CriterionResult]",
+    "decision_tree": "transfermtl.predictor.criteria.decide(phenomenon, predictor) -> Decision (PROCEED/WORKSHOP/INVESTIGATE/PIVOT/DROP)",
+    "predictor_eval": "transfermtl.predictor.pilot_baseline.evaluate_pilot_predictor(measurements_df) -> PredictorScores",
+    "render": "scripts.pilot_decision.render_decision_document(phenomenon, predictor, per_dataset, examples) -> (md, decision, phenomenon_crits, predictor_crits)"
+  },
+  "criteria_thresholds": {
+    "phenomenon_1_n_pairs_with_sign_het": ">=5",
+    "phenomenon_2_pct_meaningful": ">=0.15",
+    "phenomenon_3_null_test": "observed_prevalence > 95th-percentile of random null",
+    "predictor_1_auroc_floor": ">=0.70",
+    "predictor_2_baseline_lift": ">=0.07 over best non-gradient baseline",
+    "predictor_3_spearman": ">=0.45",
+    "predictor_4_cross_seed_agreement": ">=0.80",
+    "source": "plan §5.7 (locked — do not relax post-hoc)"
+  },
+  "decision_tree": {
+    "PROCEED": "phenomenon ✓ AND predictor ✓",
+    "WORKSHOP": "phenomenon ✓, predictor floor (criterion 1) ✗",
+    "INVESTIGATE": "phenomenon ✓, predictor floor ✓ but lift/spearman/cross-seed ✗",
+    "PIVOT": "phenomenon ✗ AND predictor untestable (no meaningful pairs)",
+    "DROP": "phenomenon ✗ AND predictor ✗",
+    "source": "plan §5.8"
+  },
+  "tests": {
+    "pair_selection": [
+      "test_select_pilot_pairs_deterministic",
+      "test_select_pilot_pairs_seed_changes_output",
+      "test_select_pilot_pairs_categories"
+    ],
+    "phenomenon_criteria": [
+      "test_phenomenon_criteria_all_pass",
+      "test_phenomenon_criteria_each_failure (parametrized: 3)"
+    ],
+    "predictor_criteria": [
+      "test_predictor_criteria_all_pass",
+      "test_predictor_criteria_each_failure (parametrized: 4)"
+    ],
+    "decision_tree": [
+      "test_decide_proceed_when_all_pass",
+      "test_decide_workshop_when_predictor_floor_fails",
+      "test_decide_investigate_when_floor_passes_but_other_fails",
+      "test_decide_pivot_when_phenomenon_fails_and_predictor_untestable",
+      "test_decide_drop_when_both_fail"
+    ],
+    "pilot_baseline": [
+      "test_cross_seed_sign_agreement_unanimous",
+      "test_evaluate_pilot_predictor_auroc_and_spearman"
+    ],
+    "rendering": [
+      "test_pilot_decision_script_runs",
+      "test_pilot_decision_script_handles_untestable_predictor"
+    ],
+    "smoke": [
+      "test_pilot_smoke_synthetic — full A3->A6->A7 pipeline on the 200-mol fixture; runs in <60s on CPU"
+    ],
+    "totals": "22 passed locally"
+  },
+  "acceptance": {
+    "tests_passing": "22/22 in tests/test_pilot_e2e.py",
+    "ruff_check": "clean (A7 files)",
+    "black_check": "clean (A7 files)",
+    "mypy_strict": "clean (A7 source modules)",
+    "smoke_runtime_cpu_seconds": "<10s in observed runs (target was <60s)",
+    "select_pilot_pairs_smoke": "50 deterministic pairs (25 tox21 across within_nr/within_sr/cross_mechanism/random + 25 sider cross_soc)"
+  },
+  "deferred_for_full_pilot_run": [
+    "outputs/analysis/pilot_decision.md — must be rendered after the full pilot pipeline (Stages 1–7 of scripts/launch_pilot.sh) finishes on Tox21 + SIDER. The rendering machinery and all sub-criteria are unit-tested; the document only requires that real measurement parquets be in place.",
+    "outputs/figures/pilot_figure_2_preview.pdf — depends on regional benefit data from Stage 5 of the pilot.",
+    "Random-partition null distribution (Stage 6, ~200 partitions × 2 datasets) — heaviest stage; expect ~30 GPU-hours of the ~40 GPU-hour pilot budget."
+  ],
+  "out_of_scope_observation": {
+    "a7_does_not_advance_the_gate": "A7 only writes pilot_decision.md. **Wave 4+ requires PI sign-off on that document before A8/A9 may begin.** The decision tree's `PROCEED` value is necessary but not sufficient — the human reviewer is the actual gate.",
+    "synthetic_fixture_delta_pair": "On the 200-mol fixture, the test-only feature-leak channel makes both STL and MTL fit perfectly, collapsing Δ_pair to ~0. The smoke test exercises compute_region_deltas for the API contract and asserts the gradient-based S_pair detection on synthesised CIs. Δ_pair *recovery* on real chemistry runs through the launch_pilot.sh stage 5/7 wiring."
+  },
+  "notes_for_wave4": [
+    "A8 generalises pilot_baseline.py: the four feature columns (`G_ij`, `scaffold_tanimoto`, `embedding_distance`, `label_correlation`) are the seed for A8's full Phase 2 predictor, which adds incremental R² (plan §2.14). The friendly task-name → split-column mapping uses transfermtl.data.manifest.resolve_task_name.",
+    "criteria.py thresholds are locked; A8 must reference them (do not redefine).",
+    "scripts/launch_pilot.sh is the single entry point for the gate; A8/A9 should add their own stages downstream rather than fork the launcher."
+  ]
+}

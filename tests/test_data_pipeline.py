@@ -228,15 +228,11 @@ def test_resolve_task_name_passthrough_when_already_column(tmp_path: Path) -> No
 
     from transfermtl.data.manifest import resolve_task_name
 
-    (tmp_path / "tox21.json").write_text(
-        json.dumps({"task_rename": {"NR-AR": "task_1"}})
-    )
+    (tmp_path / "tox21.json").write_text(json.dumps({"task_rename": {"NR-AR": "task_1"}}))
     # Even though tmp_path has a manifest, passing `task_1` directly should
     # short-circuit and return as-is.
     assert (
-        resolve_task_name(
-            "task_1", "tox21", available_columns=["task_1"], manifest_dir=tmp_path
-        )
+        resolve_task_name("task_1", "tox21", available_columns=["task_1"], manifest_dir=tmp_path)
         == "task_1"
     )
 
@@ -257,10 +253,7 @@ def test_resolve_task_name_unknown_passes_through(tmp_path: Path) -> None:
     from transfermtl.data.manifest import resolve_task_name
 
     (tmp_path / "tox21.json").write_text(json.dumps({"task_rename": {"NR-AR": "task_1"}}))
-    assert (
-        resolve_task_name("NotAReal-Task", "tox21", manifest_dir=tmp_path)
-        == "NotAReal-Task"
-    )
+    assert resolve_task_name("NotAReal-Task", "tox21", manifest_dir=tmp_path) == "NotAReal-Task"
 
 
 def test_load_task_rename_handles_missing_or_malformed(tmp_path: Path) -> None:

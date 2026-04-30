@@ -29,11 +29,7 @@ def build_null_distribution(
     """
     del dataset, statistic, M  # carried for documentation / call sites
     if compute_statistic is None:
-        raise NotImplementedError(
-            "compute_statistic must be supplied; A6 wires this in Wave 3"
-        )
+        raise NotImplementedError("compute_statistic must be supplied; A6 wires this in Wave 3")
     if n_partitions <= 0:
         raise ValueError("n_partitions must be positive")
-    return np.asarray(
-        [float(compute_statistic(b)) for b in range(n_partitions)], dtype=float
-    )
+    return np.asarray([float(compute_statistic(b)) for b in range(n_partitions)], dtype=float)
