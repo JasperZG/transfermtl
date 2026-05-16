@@ -22,6 +22,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from transfermtl.data.manifest import resolve_task_name
 from transfermtl.gradients.affinity import cosine_affinity
 from transfermtl.gradients.extract import compute_regional_gradient
 from transfermtl.gradients.io import write_region_affinity
@@ -60,6 +61,11 @@ def main(argv: list[str] | None = None) -> int:
     partition = PartitionSchema.validate(pd.read_parquet(partition_path))
     cache_dir = Path(args.cache_dir)
 
+    # split.parquet stores tasks under canonical task_N columns; resolve the
+    # friendly CLI names against the rename map so row[col] lookups succeed.
+    col_i = resolve_task_name(args.task_i, args.dataset, list(split_df.columns))
+    col_j = resolve_task_name(args.task_j, args.dataset, list(split_df.columns))
+
     rows: list[dict[str, object]] = []
     for region_id in sorted(partition["region_id"].unique()):
         region_smis = set(partition.loc[partition["region_id"] == region_id, "smiles"])
@@ -70,8 +76,8 @@ def main(argv: list[str] | None = None) -> int:
 
         # Use train+val rows for gradient estimation (test compounds are held out).
         region_split = region_split[region_split["split"].isin(["train", "val"])]
-        data_i = load_pyg_dataset(region_split, "train", [args.task_i], cache_dir=cache_dir)
-        data_j = load_pyg_dataset(region_split, "train", [args.task_j], cache_dir=cache_dir)
+        data_i = load_pyg_dataset(region_split, "train", [col_i], cache_dir=cache_dir)
+        data_j = load_pyg_dataset(region_split, "train", [col_j], cache_dir=cache_dir)
 
         ckpt_i = _checkpoint_path(args.dataset, args.task_i, args.seed)
         ckpt_j = _checkpoint_path(args.dataset, args.task_j, args.seed)
