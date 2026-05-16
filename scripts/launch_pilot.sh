@@ -75,18 +75,34 @@ fi
 # ---------------------------------------------------------------------------
 if [[ " ${STAGES} " == *" 2 "* ]]; then
   for ds in ${DATASETS}; do
-    n_tasks=$("${PYTHON}" -c "
-import pandas as pd
-df = pd.read_parquet('outputs/splits/${ds}/split.parquet')
-print(sum(1 for c in df.columns if c.startswith('task_')))
-")
-    for ti in $(seq 1 "${n_tasks}"); do
-      task="task_${ti}"
+    # Iterate friendly task names so downstream scripts (gradients, benefits)
+    # can match against the same naming used for MTL artifacts. Friendly names
+    # may contain spaces (SIDER), so read tab-delimited.
+    while IFS=$'\t' read -r task; do
+      [[ -z "${task}" ]] && continue
       for seed in ${SEEDS}; do
         run_stage 2 "${PYTHON}" scripts/train_stl.py \
           --dataset "${ds}" --task "${task}" --seed "${seed}"
       done
-    done
+    done < <("${PYTHON}" -c "
+import json, sys
+from pathlib import Path
+import pandas as pd
+ds = '${ds}'
+manifest = Path('outputs/data_manifest') / f'{ds}.json'
+tasks: list[str] = []
+if manifest.exists():
+    rename = json.loads(manifest.read_text()).get('task_rename') or {}
+    if rename:
+        inv = {v: k for k, v in rename.items()}
+        cols = sorted(inv, key=lambda c: int(c.split('_')[1]))
+        tasks = [inv[c] for c in cols]
+if not tasks:
+    df = pd.read_parquet(f'outputs/splits/{ds}/split.parquet')
+    tasks = [c for c in df.columns if c.startswith('task_')]
+for t in tasks:
+    print(t)
+")
   done
 fi
 
