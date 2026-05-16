@@ -54,6 +54,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     log.info("git=%s dirty=%s", current_sha(), dirty_tree_warning())
 
+    ckpt_path = CKPT_DIR / args.dataset / "stl" / args.task / f"seed{args.seed}.pt"
+    pred_path = PRED_DIR / args.dataset / "stl" / args.task / f"seed{args.seed}.parquet"
+    if ckpt_path.exists() and pred_path.exists():
+        log.info("skip: outputs already exist for %s seed=%d", args.task, args.seed)
+        return 0
+
     cfg = TrainConfig(max_epochs=args.max_epochs, batch_size=args.batch_size)
 
     split_path = SPLITS_DIR / args.dataset / "split.parquet"
@@ -73,9 +79,6 @@ def main(argv: list[str] | None = None) -> int:
         run_name=f"stl/{args.dataset}/{args.task}/seed{args.seed}",
         tags=["stl", args.dataset, args.task],
     )
-
-    ckpt_path = CKPT_DIR / args.dataset / "stl" / args.task / f"seed{args.seed}.pt"
-    pred_path = PRED_DIR / args.dataset / "stl" / args.task / f"seed{args.seed}.parquet"
 
     art: STLArtifacts = train_stl(
         train_data=train,

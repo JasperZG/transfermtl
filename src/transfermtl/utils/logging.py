@@ -44,10 +44,12 @@ def init(
         _ACTIVE_RUN = None
         return None
 
+    # wandb tags must be 1-64 chars (pydantic Settings validation in wandb >=0.18).
+    safe_tags = [t[:64] for t in (tags or []) if t]
     _ACTIVE_RUN = wandb.init(
         project=PROJECT_TAG,
         name=run_name,
-        tags=tags or [],
+        tags=safe_tags,
         config=enriched,
         mode=effective_mode,
     )

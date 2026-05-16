@@ -19,6 +19,7 @@
 #   STAGES="1 2 3 4 5 6 7" bash scripts/launch_pilot.sh    # run locally (CPU/single-GPU)
 
 #SBATCH --job-name=tsh-pilot
+#SBATCH --partition=scu-gpu
 #SBATCH --output=outputs/logs/pilot_%j.out
 #SBATCH --error=outputs/logs/pilot_%j.err
 #SBATCH --time=48:00:00
@@ -28,8 +29,22 @@
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Under sbatch, BASH_SOURCE points into the SLURM spool dir (unwritable).
+# SLURM_SUBMIT_DIR is the dir you ran sbatch from; fall back to BASH_SOURCE
+# only when running outside SLURM.
+REPO_ROOT="${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 cd "${REPO_ROOT}"
+export WANDB_MODE=offline
+
+# Activate the conda env explicitly — sbatch shells don't inherit it.
+CONDA_ENV="${CONDA_ENV:-transfermtl}"
+if [[ -z "${CONDA_DEFAULT_ENV:-}" || "${CONDA_DEFAULT_ENV}" != "${CONDA_ENV}" ]]; then
+  # conda's profile script trips set -u; relax it just for the activation.
+  set +u
+  source /etc/profile.d/conda.sh
+  conda activate "${CONDA_ENV}"
+  set -u
+fi
 
 PYTHON="${PYTHON:-python}"
 DATASETS="${DATASETS:-tox21 sider}"

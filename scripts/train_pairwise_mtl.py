@@ -53,6 +53,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     log.info("git=%s dirty=%s", current_sha(), dirty_tree_warning())
 
+    pair = f"{args.task_i}_{args.task_j}"
+    ckpt_path = CKPT_DIR / args.dataset / "mtl" / pair / f"seed{args.seed}.pt"
+    pred_path = PRED_DIR / args.dataset / "mtl" / pair / f"seed{args.seed}.parquet"
+    if ckpt_path.exists() and pred_path.exists():
+        log.info("skip: outputs already exist for %s seed=%d", pair, args.seed)
+        return 0
+
     cfg = TrainConfig(max_epochs=args.max_epochs, batch_size=args.batch_size)
 
     split_path = SPLITS_DIR / args.dataset / "split.parquet"
@@ -87,10 +94,6 @@ def main(argv: list[str] | None = None) -> int:
         run_name=f"mtl/{args.dataset}/{args.task_i}_{args.task_j}/seed{args.seed}",
         tags=["mtl", args.dataset, args.task_i, args.task_j],
     )
-
-    pair = f"{args.task_i}_{args.task_j}"
-    ckpt_path = CKPT_DIR / args.dataset / "mtl" / pair / f"seed{args.seed}.pt"
-    pred_path = PRED_DIR / args.dataset / "mtl" / pair / f"seed{args.seed}.parquet"
 
     art: MTLArtifacts = train_pairwise_mtl(
         train_data=train,
